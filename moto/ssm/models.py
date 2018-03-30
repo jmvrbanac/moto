@@ -63,6 +63,7 @@ class SimpleSystemManagerBackend(BaseBackend):
     def __init__(self):
         self._parameters = {}
         self._resource_tags = defaultdict(lambda: defaultdict(dict))
+        self._commands = {}
 
     def delete_parameter(self, name):
         try:
@@ -145,34 +146,70 @@ class SimpleSystemManagerBackend(BaseBackend):
         instances = kwargs['InstanceIds']
         now = datetime.datetime.now()
         expires_after = now + datetime.timedelta(0, int(kwargs['TimeoutSeconds']))
-        return {
-            'Command': {
-                'CommandId': str(uuid.uuid4()),
-                'DocumentName': kwargs['DocumentName'],
-                'Comment': kwargs.get('Comment'),
-                'ExpiresAfter': expires_after.isoformat(),
-                'Parameters': kwargs['Parameters'],
-                'InstanceIds': kwargs['InstanceIds'],
-                'Targets': kwargs.get('targets'),
-                'RequestedDateTime': now.isoformat(),
-                'Status': 'Success',
-                'StatusDetails': 'string',
-                'OutputS3Region': kwargs.get('OutputS3Region'),
-                'OutputS3BucketName': kwargs.get('OutputS3BucketName'),
-                'OutputS3KeyPrefix': kwargs.get('OutputS3KeyPrefix'),
-                'MaxConcurrency': 'string',
-                'MaxErrors': 'string',
-                'TargetCount': len(instances),
-                'CompletedCount': len(instances),
-                'ErrorCount': 0,
-                'ServiceRole': kwargs.get('ServiceRoleArn'),
-                'NotificationConfig': {
-                    'NotificationArn': 'string',
-                    'NotificationEvents': ['Success'],
-                    'NotificationType': 'Command'
-                }
+        command_id = str(uuid.uuid4())
+
+        self._commands[command_id] = {
+            'CommandId': command_id,
+            'DocumentName': kwargs['DocumentName'],
+            'Comment': kwargs.get('Comment'),
+            'ExpiresAfter': expires_after.isoformat(),
+            'Parameters': kwargs['Parameters'],
+            'InstanceIds': kwargs['InstanceIds'],
+            'Targets': kwargs.get('targets'),
+            'RequestedDateTime': now.isoformat(),
+            'Status': 'Success',
+            'StatusDetails': 'string',
+            'OutputS3Region': kwargs.get('OutputS3Region'),
+            'OutputS3BucketName': kwargs.get('OutputS3BucketName'),
+            'OutputS3KeyPrefix': kwargs.get('OutputS3KeyPrefix'),
+            'MaxConcurrency': 'string',
+            'MaxErrors': 'string',
+            'TargetCount': len(instances),
+            'CompletedCount': len(instances),
+            'ErrorCount': 0,
+            'ServiceRole': kwargs.get('ServiceRoleArn'),
+            'NotificationConfig': {
+                'NotificationArn': 'string',
+                'NotificationEvents': ['Success'],
+                'NotificationType': 'Command'
             }
         }
+
+        return {'Command': self._commands[command_id]}
+
+    def get_command_invocation(self, **kwargs):
+        command_id = kwargs['CommandId']
+        instance_id = kwargs['InstanceId']
+        command = self._commands.get(command_id)
+
+        if not command:
+            return {}
+
+        s3_url = 'https://s3-url/{bucket}/{key_prefix}'.format(
+            bucket=command['OutputS3BucketName'],
+            key_prefix=command['OutputS3KeyPrefix']
+        )
+
+        resp = {
+            'CommandId': command_id,
+            'InstanceId': instance_id,
+            'Comment': command['Comment'],
+            'DocumentName': command['DocumentName'],
+            'PluginName': '',
+            'ResponseCode': 1,
+            'ExecutionStartDateTime': 'string',
+            'ExecutionElapsedTime': 'string',
+            'ExecutionEndDateTime': 'string',
+            'Status': command['Status'],
+            'StatusDetails': command['StatusDetails'],
+            'StandardOutputContent': 'placeholder',
+            'StandardOutputUrl': '{}/stdout'.format(s3_url),
+            'StandardErrorContent': 'placeholder',
+            'StandardErrorUrl': '{}/stdout'.format(s3_url),
+        }
+
+        return resp
+
 
 
 ssm_backends = {}
