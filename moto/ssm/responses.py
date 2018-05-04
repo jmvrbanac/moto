@@ -209,3 +209,10 @@ class SimpleSystemManagerResponse(BaseResponse):
         return json.dumps(
             self.ssm_backend.get_command_invocation(**self.request_params)
         )
+
+    def describe_instance_information(self):
+        return json.dumps(
+            self.ssm_backend.describe_instance_information(
+                **self.request_params
+            )
+        )

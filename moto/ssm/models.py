@@ -64,6 +64,7 @@ class SimpleSystemManagerBackend(BaseBackend):
         self._parameters = {}
         self._resource_tags = defaultdict(lambda: defaultdict(dict))
         self._commands = {}
+        self._instances = {}
 
     def delete_parameter(self, name):
         try:
@@ -209,6 +210,25 @@ class SimpleSystemManagerBackend(BaseBackend):
         }
 
         return resp
+
+    def add_ssm_instance(self, **kwargs):
+        """Not available in boto3. Used to populate testing backend"""
+        instance_id = kwargs['InstanceId']
+        self._instances[instance_id] = kwargs
+
+    def describe_instance_information(self, **kwargs):
+        filter_list = kwargs['InstanceInformationFilterList']
+        filters = {item['key']: item['valueSet'] for item in filter_list}
+
+        instance_ids_to_filter = filters.get('InstanceIds')
+
+        return {
+            'InstanceInformationList': [
+                inst
+                for key, inst in self._instances.items()
+                if key in instance_ids_to_filter
+            ]
+        }
 
 
 
